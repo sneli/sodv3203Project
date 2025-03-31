@@ -9,8 +9,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBox
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -28,8 +28,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.*
+import com.example.sodv3203project.ui.AddRecipeScreen
 import com.example.sodv3203project.ui.HomeScreen
-import com.example.sodv3203project.ui.NotificationScreen
 import com.example.sodv3203project.ui.SearchScreen
 import com.example.sodv3203project.ui.ProfileScreen
 import com.example.sodv3203project.ui.theme.winkle
@@ -37,7 +37,7 @@ import com.example.sodv3203project.ui.theme.winkle
 sealed class Screen(val route: String, val icon: ImageVector) {
     object Home : Screen("home", Icons.Default.Home)
     object Search : Screen("search", Icons.Default.Search)
-    object Notifications : Screen("notifications", Icons.Default.Notifications)
+    object Add : Screen("Add", Icons.Default.Add)
     object Profile : Screen("profile", Icons.Default.Person)
 
 }
@@ -75,7 +75,7 @@ fun RecipeScreen() {
         bottomBar = { BottomNavBar(navController) }
     ) { paddingValues ->
         Box(modifier = Modifier.padding(paddingValues)) {
-            NavHost(navController = navController, startDestination = Screen.Home.route) {
+            NavHost(navController = navController, startDestination = Screen.Add.route) {
                 composable(Screen.Home.route)
                 {
                     HomeScreen()
@@ -84,9 +84,9 @@ fun RecipeScreen() {
                 {
                     SearchScreen()
                 }
-                composable(Screen.Notifications.route)
+                composable(Screen.Add.route)
                 {
-                    NotificationScreen()
+                    AddRecipeScreen()
                 }
                 composable(Screen.Profile.route)
                 {
@@ -99,7 +99,7 @@ fun RecipeScreen() {
 
 @Composable
 fun BottomNavBar(navController: NavHostController) {
-    val items = listOf(Screen.Home, Screen.Search, Screen.Notifications, Screen.Profile)
+    val items = listOf(Screen.Home, Screen.Search, Screen.Add, Screen.Profile)
     val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
 
     BottomNavigation(
