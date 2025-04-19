@@ -1,12 +1,8 @@
 package com.example.sodv3203project
 
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBox
 import androidx.compose.material.icons.filled.Add
@@ -15,31 +11,41 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.*
-import com.example.sodv3203project.ui.AddRecipeScreen
-import com.example.sodv3203project.ui.HomeScreen
-import com.example.sodv3203project.ui.SearchScreen
-import com.example.sodv3203project.ui.ProfileScreen
+import androidx.room.Room
+import com.example.sodv3203project.data.AppDatabase
+import com.example.sodv3203project.data.recipe.RecipeRepository
+import com.example.sodv3203project.data.user.User
+import com.example.sodv3203project.navigation.RecipeNavGraph
+import com.example.sodv3203project.ui.subscreens.CurrentSession.user
 import com.example.sodv3203project.ui.theme.winkle
+import com.example.sodv3203project.viewmodel.RecipeViewModel
+import com.example.sodv3203project.viewmodel.RecipeViewModelFactory
 
-sealed class Screen(val route: String, val icon: ImageVector) {
-    object Home : Screen("home", Icons.Default.Home)
-    object Search : Screen("search", Icons.Default.Search)
-    object Add : Screen("Add", Icons.Default.Add)
-    object Profile : Screen("profile", Icons.Default.Person)
-
+sealed class BottomNavItem(val title: String, val icon: ImageVector, val route: String) {
+    object Home : BottomNavItem("Home", Icons.Default.Home, "home")
+    object Search : BottomNavItem("Search", Icons.Default.Search, "search")
+    object Add : BottomNavItem("Add", Icons.Default.Add, "add")
+    object Profile : BottomNavItem("Profile", Icons.Default.Person, "profile")
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -68,60 +74,61 @@ fun RecipeTopBar(){
 }
 
 @Composable
-fun RecipeScreen() {
+fun RecipeScreen(repository: RecipeRepository, user: User) {
+    val context = LocalContext.current
+    val db = remember { AppDatabase.getDatabase(context) }
+    val userDao = db.userDao()
+
+    val factory = remember { RecipeViewModelFactory(db, repository) }
+    val recipeViewModel: RecipeViewModel = viewModel(factory = factory)
+
     val navController = rememberNavController()
+    val snackbarHostState = remember { SnackbarHostState() }
+
     Scaffold(
         topBar = { RecipeTopBar() },
-        bottomBar = { BottomNavBar(navController) }
-    ) { paddingValues ->
-        Box(modifier = Modifier.padding(paddingValues)) {
-            NavHost(navController = navController, startDestination = Screen.Add.route) {
-                composable(Screen.Home.route)
-                {
-                    HomeScreen()
-                }
-                composable(Screen.Search.route)
-                {
-                    SearchScreen()
-                }
-                composable(Screen.Add.route)
-                {
-                    AddRecipeScreen()
-                }
-                composable(Screen.Profile.route)
-                {
-                    ProfileScreen()
-                }
-            }
-        }
+        bottomBar = { BottomNavBar(navController) },
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
+    ) { innerPadding ->
+        RecipeNavGraph(
+            navController = navController,
+            userDao = userDao,
+            user = user,
+            recipeViewModel = recipeViewModel,
+            snackbarHostState = snackbarHostState,
+            modifier = Modifier.padding(innerPadding))
     }
 }
 
 @Composable
 fun BottomNavBar(navController: NavHostController) {
-    val items = listOf(Screen.Home, Screen.Search, Screen.Add, Screen.Profile)
-    val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
+    val items = listOf(
+        BottomNavItem.Home,
+        BottomNavItem.Search,
+        BottomNavItem.Add,
+        BottomNavItem.Profile
+    )
 
-    BottomNavigation(
-        backgroundColor = Color.DarkGray,
-        modifier = Modifier
-            .height(80.dp)
-    ) {
-        items.forEach { screen ->
-            val isSelected = currentRoute == screen.route
-            BottomNavigationItem(
-                icon =
-                {
-                    Icon(
-                        imageVector = screen.icon,
-                        contentDescription = screen.route,
-                        tint = if (isSelected) Color.White else Color.Black,
-                        modifier = Modifier.size(40.dp)
-                            .align(Alignment.CenterVertically)
-                    )
-                },
-                selected = currentRoute == screen.route,
-                onClick = { navController.navigate(screen.route) }
+    NavigationBar {
+        val navBackStackEntry by navController.currentBackStackEntryAsState()
+        val currentRoute = navBackStackEntry?.destination?.route
+
+        items.forEach { item ->
+            NavigationBarItem(
+                icon = { Icon(imageVector = item.icon, contentDescription = item.title) },
+                label = { Text(item.title) },
+                selected = currentRoute == item.route,
+                onClick = {
+                    if (currentRoute != item.route) {
+                        navController.navigate(item.route) {
+                            popUpTo(navController.graph.startDestinationRoute ?: "home") {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    }
+                }
             )
         }
     }
